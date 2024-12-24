@@ -1,53 +1,17 @@
 from llama import Llama
 from dataset import load_xsum
-
-SYSTEM_PROMPT = """
-You are an expert in evaluating the faithfulness of one-sentence summaries compared to their corresponding documents.
-
-### Definition of Faithfulness:
-A summary is considered faithful if it exclusively contains information stated in the document. 
-Any content in the summary that is not supported by the document is considered unfaithful. 
-Paraphrasing is allowed, meaning that the summary can use different words to express the same key information. 
-However, the meaning must remain the same as in the document, and no new, unfaithful information should be added.
-
-### Your Task:
-- Review the provided document and its one-sentence summary.
-- Determine if the summary is faithful to the document.
-- If the summary is unfaithful:
-  - Identify the key words in the summary that are not faithful by the document.
-  - List these unfaithful words in the exact order they appear in the summary.
-  - Avoid repeating the same word multiple times in the list.
-
-### Output Format Faithful: 
-{
-  'faithful': True,
-  'unfaithful words': []
-}
-
-### Output Format Unfaithful: 
-{
-  'faithful': False,
-  'unfaithful words': ['word1', 'word2', 'word3']
-}
+from nltk.tokenize import word_tokenize
+import json
+import nltk
+nltk.download('punkt_tab')
+nltk.download('punkt')  # Pre-trained tokenizer
+nltk.download('stopwords')  # Common English stopwords
+nltk.download('wordnet')  # WordNet lexical database
 
 
----
-
-### Important Guidelines:
-- **Paraphrasing**: The summary can express the same information with different words. For example, replacing "damaged" with "destroyed" is allowed if it reflects the same meaning in context, but you should ensure the change does not introduce information that wasn’t present in the document. Always ensure that paraphrasing does not alter the meaning of the original information.
-
-- **Unsupported Words/Phrases**: If a word or phrase in the summary is not explicitly supported by the document, list it. This includes any term or concept that the document does not mention or support. For example, if a summary mentions "arson" when the document does not explicitly say this, it would be considered unfaithful.
-
-- **MUST NOT**:
-  - Provide explanations for why specific words are unfaithful.
-  - Format the unfaithful words in multiple paragraphs or alter their order.
-  - List repeated words.
-
-**NEVER** Output the original Document.
-
----
-
-### Example 1:
+ROLE = ("You are an expert at evaluating if a one-sentence summary is faithful to its corresponding document. "
+        "Faithful means the summary exclusively contains information stated in the documents, but it can be paraphrased.")
+EXAMPLE_UNFAITHFUL = """
 - **User Prompt**:
     Document:  
     '''
@@ -77,85 +41,106 @@ However, the meaning must remain the same as in the document, and no new, unfait
     '''
     Clean-up operations are continuing across the Scottish Borders and Dumfries and Galloway after flooding caused by Storm Frank.
     '''
-- **Response**: 
-    {
-      'faithful': False  
-      'unfaithful words': ["Storm", "Frank"]
-    }
----
-
-### Example 2:
-- **User Prompt**:
-    Document:  
+    
+    Summary word tokenization: 
     '''
-    A fire alarm went off at the Holiday Inn in Hope Street at about 04:20 BST on Saturday and guests were asked to leave the hotel.  
-    As they gathered outside they saw the two buses, parked side-by-side in the car park, engulfed by flames.  
-    One of the tour groups is from Germany, the other from China and Taiwan. It was their first night in Northern Ireland.  
-    The driver of one of the buses said many of the passengers had left personal belongings on board and these had been destroyed.  
-    Both groups have organised replacement coaches and will begin their tour of the north coast later than they had planned.  
-    Police have appealed for information about the attack.  
-    Insp David Gibson said: "It appears as though the fire started under one of the buses before spreading to the second.  
-    "While the exact cause is still under investigation, it is thought that the fire was started deliberately."
-    '''
-
-    Summary:  
-    '''
-    Two tourist buses have been destroyed by fire in a suspected arson attack in Belfast city centre.
+    ['Clean-up', 'operations', 'are', 'continuing', 'across', 'the', 'Scottish', 'Borders', 'and', 'Dumfries', 'and', 'Galloway', 'after', 'flooding', 'caused', 'by', 'Storm', 'Frank', '.']
     '''
 - **Response**: 
     {
-      'faithful': False  
-      'unfaithful words': ["arson", "Belfast", "city", "centre"]
+      'faithful': false,
+      'word unfaithful labels': [
+        ('Clean-up', false), 
+        ('operations', false), 
+        ('are', false), 
+        ('continuing', false), 
+        ('across', false), 
+        ('the', false), 
+        ('Scottish', false), 
+        ('Borders', false),
+        ('and', false),
+        ('Dumfries', false),
+        ('and', false),
+        ('Galloway', false),
+        ('after', false),
+        ('flooding', false),
+        ('caused', false),
+        ('by', false),
+        ('Storm', true),
+        ('Frank', true),
+        ('.', false)
+      ]
     }
----
-
-### Example 3:
+"""
+EXAMPLE_FAITHFUL = """
 - **User Prompt**:
-    Document:  
+    Document:
     '''
-    Ferrari appeared in a position to challenge until the final laps, when the Mercedes stretched their legs to go half a second clear of the red cars.  
-    Sebastian Vettel will start third ahead of team-mate Kimi Raikkonen.  
-    The world champion subsequently escaped punishment for reversing in the pit lane, which could have seen him stripped of pole.  
-    But stewards only handed Hamilton a reprimand, after governing body the FIA said "no clear instruction was given on where he should park".  
-    Belgian Stoffel Vandoorne out-qualified McLaren team-mate Jenson Button on his Formula 1 debut.  
-    Vandoorne was 12th and Button 14th, complaining of a handling imbalance on his final lap but admitting the newcomer "did a good job and I didn't".  
-    Mercedes were wary of Ferrari's pace before qualifying after Vettel and Raikkonen finished one-two in final practice, and their concerns appeared to be well founded as the red cars mixed it with the silver through most of qualifying.  
-    After the first runs, Rosberg was ahead, with Vettel and Raikkonen splitting him from Hamilton, who made a mistake at the final corner on his first lap.  
-    But Hamilton saved his best for last, fastest in every sector of his final attempt, to beat Rosberg by just 0.077secs after the German had out-paced him throughout practice and in the first qualifying session.  
-    Vettel rued a mistake at the final corner on his last lap, but the truth is that with the gap at 0.517secs to Hamilton there was nothing he could have done.  
-    The gap suggests Mercedes are favourites for the race, even if Ferrari can be expected to push them.  
-    Vettel said: "Last year we were very strong in the race and I think we are in good shape for tomorrow. We will try to give them a hard time."  
-    Vandoorne's preparations for his grand prix debut were far from ideal - he only found out he was racing on Thursday when FIA doctors declared Fernando Alonso unfit because of a broken rib sustained in his huge crash at the first race of the season in Australia two weeks ago.  
-    The Belgian rookie had to fly overnight from Japan, where he had been testing in the Super Formula car he races there, and arrived in Bahrain only hours before first practice on Friday.  
-    He also had a difficult final practice, missing all but the final quarter of the session because of a water leak.  
-    Button was quicker in the first qualifying session, but Vandoorne pipped him by 0.064secs when it mattered.  
-    The 24-year-old said: "I knew after yesterday I had quite similar pace to Jenson and I knew if I improved a little bit I could maybe challenge him and even out-qualify him and that is what has happened.  
-    "Jenson is a very good benchmark for me because he is a world champion and he is well known to the team so I am very satisfied with the qualifying."  
-    Button, who was 0.5secs quicker than Vandoorne in the first session, complained of oversteer on his final run in the second: "Q1 was what I was expecting. Q2 he did a good job and I didn't. Very, very good job. We knew how quick he was."  
-    The controversial new elimination qualifying system was retained for this race despite teams voting at the first race in Australia to go back to the 2015 system.  
-    FIA president Jean Todt said earlier on Saturday that he "felt it necessary to give new qualifying one more chance", adding: "We live in a world where there is too much over reaction."  
-    The system worked on the basis of mixing up the grid a little - Force India's Sergio Perez ended up out of position in 18th place after the team miscalculated the timing of his final run, leaving him not enough time to complete it before the elimination clock timed him out.  
-    But it will come in for more criticism as a result of lack of track action at the end of each session. There were three minutes at the end of the first session with no cars on the circuit, and the end of the second session was a similar damp squib.  
-    Only one car - Nico Hulkenberg's Force India - was out on the track with six minutes to go. The two Williams cars did go out in the final three minutes but were already through to Q3 and so nothing was at stake.  
-    The teams are meeting with Todt and F1 commercial boss Bernie Ecclestone on Sunday at noon local time to decide on what to do with qualifying for the rest of the season.  
-    Todt said he was "optimistic" they would be able to reach unanimous agreement on a change.  
-    "We should listen to the people watching on TV," Rosberg said. "If they are still unhappy, which I am sure they will be, we should change it."  
-    Red Bull's Daniel Ricciardo was fifth on the grid, ahead of the Williams cars of Valtteri Bottas and Felipe Massa and Force India's Nico Hulkenberg.  
-    Ricciardo's team-mate Daniil Kvyat was eliminated during the second session - way below the team's expectation - and the Renault of Brit Jolyon Palmer only managed 19th fastest.  
-    German Mercedes protege Pascal Wehrlein managed an excellent 16th in the Manor car.  
-    Bahrain GP qualifying results  
-    Bahrain GP coverage details  
+    Ferrari appeared in a position to challenge until the final laps, when the Mercedes stretched their legs to go half a second clear of the red cars.
+    Sebastian Vettel will start third ahead of team-mate Kimi Raikkonen.
+    The world champion subsequently escaped punishment for reversing in the pit lane, which could have seen him stripped of pole.
+    But stewards only handed Hamilton a reprimand, after governing body the FIA said "no clear instruction was given on where he should park".
+    Belgian Stoffel Vandoorne out-qualified McLaren team-mate Jenson Button on his Formula 1 debut.
+    Vandoorne was 12th and Button 14th, complaining of a handling imbalance on his final lap but admitting the newcomer "did a good job and I didn't".
+    Mercedes were wary of Ferrari's pace before qualifying after Vettel and Raikkonen finished one-two in final practice, and their concerns appeared to be well founded as the red cars mixed it with the silver through most of qualifying.
+    After the first runs, Rosberg was ahead, with Vettel and Raikkonen splitting him from Hamilton, who made a mistake at the final corner on his first lap.
+    But Hamilton saved his best for last, fastest in every sector of his final attempt, to beat Rosberg by just 0.077secs after the German had out-paced him throughout practice and in the first qualifying session.
+    Vettel rued a mistake at the final corner on his last lap, but the truth is that with the gap at 0.517secs to Hamilton there was nothing he could have done.
+    The gap suggests Mercedes are favourites for the race, even if Ferrari can be expected to push them.
+    Vettel said: "Last year we were very strong in the race and I think we are in good shape for tomorrow. We will try to give them a hard time."
+    Vandoorne's preparations for his grand prix debut were far from ideal - he only found out he was racing on Thursday when FIA doctors declared Fernando Alonso unfit because of a broken rib sustained in his huge crash at the first race of the season in Australia two weeks ago.
+    The Belgian rookie had to fly overnight from Japan, where he had been testing in the Super Formula car he races there, and arrived in Bahrain only hours before first practice on Friday.
+    He also had a difficult final practice, missing all but the final quarter of the session because of a water leak.
+    Button was quicker in the first qualifying session, but Vandoorne pipped him by 0.064secs when it mattered.
+    The 24-year-old said: "I knew after yesterday I had quite similar pace to Jenson and I knew if I improved a little bit I could maybe challenge him and even out-qualify him and that is what has happened.
+    "Jenson is a very good benchmark for me because he is a world champion and he is well known to the team so I am very satisfied with the qualifying."
+    Button, who was 0.5secs quicker than Vandoorne in the first session, complained of oversteer on his final run in the second: "Q1 was what I was expecting. Q2 he did a good job and I didn't. Very, very good job. We knew how quick he was."
+    The controversial new elimination qualifying system was retained for this race despite teams voting at the first race in Australia to go back to the 2015 system.
+    FIA president Jean Todt said earlier on Saturday that he "felt it necessary to give new qualifying one more chance", adding: "We live in a world where there is too much over reaction."
+    The system worked on the basis of mixing up the grid a little - Force India's Sergio Perez ended up out of position in 18th place after the team miscalculated the timing of his final run, leaving him not enough time to complete it before the elimination clock timed him out.
+    But it will come in for more criticism as a result of lack of track action at the end of each session. There were three minutes at the end of the first session with no cars on the circuit, and the end of the second session was a similar damp squib.
+    Only one car - Nico Hulkenberg's Force India - was out on the track with six minutes to go. The two Williams cars did go out in the final three minutes but were already through to Q3 and so nothing was at stake.
+    The teams are meeting with Todt and F1 commercial boss Bernie Ecclestone on Sunday at noon local time to decide on what to do with qualifying for the rest of the season.
+    Todt said he was "optimistic" they would be able to reach unanimous agreement on a change.
+    "We should listen to the people watching on TV," Rosberg said. "If they are still unhappy, which I am sure they will be, we should change it."
+    Red Bull's Daniel Ricciardo was fifth on the grid, ahead of the Williams cars of Valtteri Bottas and Felipe Massa and Force India's Nico Hulkenberg.
+    Ricciardo's team-mate Daniil Kvyat was eliminated during the second session - way below the team's expectation - and the Renault of Brit Jolyon Palmer only managed 19th fastest.
+    German Mercedes protege Pascal Wehrlein managed an excellent 16th in the Manor car.
+    Bahrain GP qualifying results
+    Bahrain GP coverage details
     '''
-
-    Summary:  
+    
+    Summary:
     '''
     Lewis Hamilton stormed to pole position at the Bahrain Grand Prix ahead of Mercedes team-mate Nico Rosberg.
     '''
-- **Response**: 
-    {  
-      'faithful': True  
-      'unfaithful words': []
+
+    Summary word tokenization:
+    '''
+    ['Lewis', 'Hamilton', 'stormed', 'to', 'pole', 'position', 'at', 'the', 'Bahrain', 'Grand', 'Prix', 'ahead', 'of', 'Mercedes', 'team-mate', 'Nico', 'Rosberg', '.']
+    '''
+- **Response**:
+    {
+      'faithful': True,
+      'word unfaithful labels': null
     }
+"""
+OUTPUT_FORMAT = ("Please format your response in a json like structure as illustrated in the examples above."
+                 "The key 'faithful' should be a boolean value, and the key 'word unfaithful labels' should be a list of tuples."
+                 "Each tuple should contain a word and a boolean value following the order of the summary tokenized given in the input."
+                 "The boolean value in each tuple should be True if the word is unfaithful, and False otherwise."
+                 "The 'word unfaithful labels' should be null if the summary is faithful."
+                 "If the summary is unfaithful, there must be at least one word with the boolean value true.")
+SYSTEM_PROMPT = f"""
+{ROLE}
+
+EXAMPLE UNFAITHFUL:
+{EXAMPLE_UNFAITHFUL}
+
+EXAMPLE FAITHFUL:
+{EXAMPLE_FAITHFUL}
+
+{OUTPUT_FORMAT}
 """
 
 
@@ -163,7 +148,30 @@ if __name__ == "__main__":
     model_wrapper = Llama(device="cpu")
     xsum = load_xsum()
 
+    counter = 0
+    train_dataset = []
     for sample in xsum['train']:
-        user_prompt = f"Document:\n{sample['document']}\n\nSummary:\n{sample['summary']}"
+        user_prompt = f"""
+        Document:
+        '''
+        {sample['document']}
+        '''
+        
+        Summary:
+        '''
+        {sample['summary']}
+        '''
+        
+        Summary word tokenization: 
+        '''
+        {word_tokenize(sample['summary'])}
+        '''
+        """
         response = model_wrapper(SYSTEM_PROMPT, user_prompt)
-        pass
+        response_dict = {
+            'document': sample['document'],
+            'summary': sample['summary'],
+            'summary_word_tokenization': word_tokenize(sample['summary']),
+            'response': json.loads(response)
+        }
+

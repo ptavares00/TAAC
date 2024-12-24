@@ -2,3 +2,4 @@ datasets
 torch
 huggingface_hub
 transformers
+nltk

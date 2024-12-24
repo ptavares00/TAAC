@@ -37,7 +37,7 @@ class Llama:
             do_sample=True,
             top_p=0.5,  # low top_p means for consistent and accurate responses
             temperature=0.1,  # low temperature means for deterministic responses
-            max_new_tokens=128,
+            max_new_tokens=512,
             truncation=True
         )
         return outputs[0]["generated_text"][-1]["content"]
