@@ -1,5 +1,5 @@
 from llama import Llama
-from dataset import load_xsum
+from xsum import load_xsum
 from nltk.tokenize import word_tokenize
 import json
 import nltk
