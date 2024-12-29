@@ -30,14 +30,18 @@ class Llama:
             device=torch.get_default_device()
         )
 
-    def __call__(self, system_prompt: str, user_prompt: str):
+    def __call__(self, system_prompt: str, user_prompt: str, previous_response: str = None, correction_prompt: str = None):
         prompt = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}]
+        if previous_response is not None and correction_prompt is not None:
+            prompt.append({"role": "system", "content": previous_response})
+            prompt.append({"role": "user", "content": correction_prompt})
+
         outputs = self.pipeline(
             prompt,
             do_sample=True,
             top_p=0.5,  # low top_p means for consistent and accurate responses
             temperature=0.1,  # low temperature means for deterministic responses
-            max_new_tokens=512,
+            max_new_tokens=256,
             truncation=True
         )
         return outputs[0]["generated_text"][-1]["content"]
