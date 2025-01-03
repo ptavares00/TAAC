@@ -1,9 +1,6 @@
 from bert import CustomBERT
 from artificial_dataset import ArtificialDataset
 
-import os
-import glob
-import json
 import torch
 from transformers import DistilBertTokenizer, DistilBertForSequenceClassification, Trainer, TrainingArguments
 
@@ -11,8 +8,6 @@ from transformers import DistilBertTokenizer, DistilBertForSequenceClassificatio
 directory = '/home/paulo-bessa/Downloads'
 #'/path/to/json/files'
 
-# Use glob to get all .json files in the directory
-data_paths = glob.glob(os.path.join(directory, "*.json"))
 
 # Step 2: Load and convert JSON files using the ArtificialDataset class
 def load_and_convert_json(data_paths):
@@ -84,7 +79,6 @@ if __name__ == "__main__":
     print(type(dataset[0]),type(dataset[0]['attention_mask']))
     print([k for k in dataset[0]['attention_mask'].keys()])
     print([k for k in dataset[0]['input_ids'].keys()])
-    print([k for k in dataset[0][idx].keys()])
     
     # Step 6: Prepare the dataset for training
     #encodings = prepare_dataset_for_training(dataset)
