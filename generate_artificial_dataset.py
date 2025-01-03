@@ -33,46 +33,34 @@ EXAMPLE_UNFAITHFUL = """
 - **User Prompt**:
     Document:
     '''
-    A fire alarm went off at the Holiday Inn in Hope Street at about 04:20 BST on Saturday and guests were asked to leave the hotel.
-    As they gathered outside they saw the two buses, parked side-by-side in the car park, engulfed by flames.
-    One of the tour groups is from Germany, the other from China and Taiwan. It was their first night in Northern Ireland.
-    The driver of one of the buses said many of the passengers had left personal belongings on board and these had been destroyed.
-    Both groups have organised replacement coaches and will begin their tour of the north coast later than they had planned.
-    Police have appealed for information about the attack.
-    Insp David Gibson said: "It appears as though the fire started under one of the buses before spreading to the second.
-    While the exact cause is still under investigation, it is thought that the fire was started deliberately."
+    The restaurant began serving puppy platters after a new law was introduced allowing dogs to eat at restaurants – as long as they were outdoors!
     '''
 
     Summary:
     '''
-    Two tourist buses have been destroyed by fire in a suspected arson attack in Belfast city centre.
+    New rules have come into place that you can eat your dog.
     '''
 
     Summary word tokenization:
     '''
-    ['Two', 'tourist', 'buses', 'have', 'been', 'destroyed', 'by', 'fire', 'in', 'a', 'suspected', 'arson', 'attack', 'in', 'Belfast', 'city', 'centre', '.']
+    ['New', 'rules', 'have', 'come', 'into', 'place', 'that', 'you', 'can', 'eat', 'your', 'dog', '.']
     '''
 - **Response**:
     {
       "unfaithful": true,
       "word unfaithful labels": [
-        ["Two", false],
-        ["tourist", false],
-        ["buses", false],
+        ["New", false],
+        ["rules", false],
         ["have", false],
-        ["been", false],
-        ["destroyed", false],
-        ["by", false],
-        ["fire", false],
-        ["in", false],
-        ["a", false],
-        ["suspected", false],
-        ["arson", true],
-        ["attack", true],
-        ["in", false],
-        ["Belfast", true],
-        ["city", true],
-        ["centre", true],
+        ["come", false],
+        ["into", false],
+        ["place", false],
+        ["that", false],
+        ["you", false],
+        ["can", false],
+        ["eat", true],
+        ["your", true],
+        ["dog", true],
         [".", false]
       ]
     }
