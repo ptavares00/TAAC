@@ -8,7 +8,8 @@ import torch
 from transformers import DistilBertTokenizer, DistilBertForSequenceClassification, Trainer, TrainingArguments
 
 # Step 1: Define paths for the JSON files
-directory = '/path/to/json/files'
+directory = '/home/paulo-bessa/Downloads'
+#'/path/to/json/files'
 
 # Use glob to get all .json files in the directory
 data_paths = glob.glob(os.path.join(directory, "*.json"))
@@ -16,17 +17,19 @@ data_paths = glob.glob(os.path.join(directory, "*.json"))
 # Step 2: Load and convert JSON files using the ArtificialDataset class
 def load_and_convert_json(data_paths):
     dataset = []
+    tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
     for file_path in data_paths:
-        with open(file_path, 'r') as f:
-            data = json.load(f)
+        #with open(file_path, 'r') as f:
+        #    data = json.load(f)
         
         # Assuming the response includes 'document', 'summary', and 'summary_word_tokenization'
-        document = data['content']['document']
-        summary = data['content']['summary']
-        summary_tokenization = data['content']['summary_word_tokenization']
+        #document = data['content']['document']
+        #summary = data['content']['summary']
+        #summary_tokenization = data['content']['summary_word_tokenization']
 
         # Create a dataset object and append it
-        dataset.append(ArtificialDataset(document=document, summary=summary, summary_tokenization=summary_tokenization))
+        
+        dataset.append(ArtificialDataset(data_path=file_path, tokenizer=tokenizer))
 
     return dataset
 
@@ -78,8 +81,13 @@ if __name__ == "__main__":
     # Step 5: Load and convert the JSON files
     dataset = load_and_convert_json(data_paths)
 
+    print(type(dataset[0]),type(dataset[0]['attention_mask']))
+    print([k for k in dataset[0]['attention_mask'].keys()])
+    print([k for k in dataset[0]['input_ids'].keys()])
+    print([k for k in dataset[0][idx].keys()])
+    
     # Step 6: Prepare the dataset for training
-    encodings = prepare_dataset_for_training(dataset)
+    #encodings = prepare_dataset_for_training(dataset)
 
     # Step 7: Train the model
-    train_model(encodings)
+    #train_model(encodings)

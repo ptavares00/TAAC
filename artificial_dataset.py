@@ -21,7 +21,7 @@ class ArtificialDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
-        item = self.data
+        item = self.data[idx]
         document = item['document']
         summary = item['summary']
         summary_label = item['response']['unfaithful']
@@ -51,22 +51,24 @@ class ArtificialDataset(Dataset):
             "labels": torch.tensor(word_labels, dtype=torch.long)
         }
 
-    
+    def __str__(self):
+        return ''#'\n'.join([str(self[idx]) for idx in range(len(self))])
 
-tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
-dataset = ArtificialDataset(data_path="unfaithful.json", tokenizer=tokenizer)
+if __name__ == "__main__":
+    tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
+    dataset = ArtificialDataset(data_path="unfaithful.json", tokenizer=tokenizer)
 
-for sample in dataset:
-    print(sample['input_ids'].shape)
-    print(sample['attention_mask'].shape)
-    print(sample['summary_label'].shape)
-    print(sample['labels'].shape)
+    for sample in dataset:
+        print(sample['input_ids'].shape)
+        print(sample['attention_mask'].shape)
+        print(sample['summary_label'].shape)
+        print(sample['labels'].shape)
 
-    print(sample['input_ids'])
-    print(sample['attention_mask'])
-    print(sample['summary_label'])
-    print(sample['labels'])
-    break
+        print(sample['input_ids'])
+        print(sample['attention_mask'])
+        print(sample['summary_label'])
+        print(sample['labels'])
+        break
 
 
 
