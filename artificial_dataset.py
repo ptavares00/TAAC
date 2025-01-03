@@ -32,12 +32,20 @@ class ArtificialDataset(Dataset):
         labels = item['response']['word unfaithful labels']
         
         # Tokenize document and summary
-        inputs = self.tokenizer(document, summary, 
+        inputs = self.tokenizer(document, 
                                 max_length=self.max_length,
                                 padding='max_length',
                                 truncation=True,
                                 return_tensors="pt")
         
+        outputs = self.tokenizer(summary, 
+                                max_length=self.max_length,
+                                padding='max_length',
+                                truncation=True,
+                                return_tensors="pt")
+        print(inputs)
+        print(outputs)
+
         # Prepare labels (0 for faithful, 1 for unfaithful)
         if labels:
             word_labels = [int(label[1]) for label in labels]
@@ -51,6 +59,7 @@ class ArtificialDataset(Dataset):
         return {
             "input_ids": inputs['input_ids'].squeeze(),
             "attention_mask": inputs['attention_mask'].squeeze(),
+            "output_ids": outputs['input_ids'].squeeze(),
             'summary_label': torch.tensor(summary_label, dtype=torch.long),
             "word_labels": torch.tensor(word_labels, dtype=torch.long)
         }
@@ -64,9 +73,9 @@ class ArtificialDataset(Dataset):
 if __name__ == "__main__":
     tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
     dataset = ArtificialDataset(data_path="/home/paulo-bessa/Downloads", tokenizer=tokenizer)
-    print(len(dataset))
-    print(dataset[0])
-    print(dataset[0]['summary_label'])
+    #print(len(dataset))
+    #print(dataset[0])
+    #print(dataset[0]['summary_label'])
     from IPython import embed; embed()
 
 
