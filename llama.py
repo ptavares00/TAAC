@@ -15,6 +15,10 @@ def set_device(device: str | None = None):
 
 
 class Llama:
+    """
+    Llama is a wrapper class for the Hugging Face model "meta-llama/Llama-3.2-3B-Instruct".
+    It initializes the model by loading the model and tokenizer from the Hugging Face model hub. Then, it builds a pipeline for text generation.
+    """
     def __init__(self, device: str | None = None):
         set_device(device)
         model_name = "meta-llama/Llama-3.2-3B-Instruct"
@@ -31,6 +35,21 @@ class Llama:
         )
 
     def __call__(self, system_prompt: str, user_prompt: str, previous_response: str = None, correction_prompt: str = None):
+        """
+        Generate a response from the model given the system prompt and user prompt.
+        If the model response is incorrect, provide a correction prompt to the model and its previous response.
+        The model is set with low top_p and temperature values for consistent and accurate responses.
+
+        :param system_prompt: str
+            System prompt to provide context and instructions to the Model.
+        :param user_prompt: str
+            User prompt to provide inputs to the Model.
+        :param previous_response: str (optional)
+            Previous model response with the system prompt and user prompt provided.
+        :param correction_prompt: str (optional)
+            Another user prompt to provide corrections to the previous response.
+        :return: Model response.
+        """
         prompt = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}]
         if previous_response is not None and correction_prompt is not None:
             prompt.append({"role": "system", "content": previous_response})

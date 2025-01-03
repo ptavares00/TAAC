@@ -11,7 +11,18 @@ nltk.download('stopwords')  # Common English stopwords
 nltk.download('wordnet')  # WordNet lexical database
 
 
-def validate_response(llm_response, summary_word_tokenization):
+def validate_response(llm_response: str, summary_word_tokenization: list[str]) -> dict:
+    """
+    Validates if the model response has a valid json format and if so converts it to a python dictionary.
+    Then, runs logical and structural validation checks on the response. It returns a different message for each type of error.
+
+    :param llm_response: str
+        Response, generated text, of the llm model.
+    :param summary_word_tokenization:
+        Tokenized summary given to the model as input, respective to the response.
+    :return: dict
+        Python dictionary of the response.
+    """
     try:
         llm_response = json.loads(llm_response)
     except Exception as e:
@@ -128,7 +139,7 @@ Please ensure you follow the output format exactly as described in the system pr
 if __name__ == "__main__":
     model_wrapper = Llama(device="cuda")
     xsum = load_xsum()
-    parent_path = "~/dataset"
+    parent_path = "~/dataset"  # Path to save the json files - artificial dataset
 
     dataloader = DataLoader(xsum['train'], batch_size=1, shuffle=False)
     for sample in dataloader:
@@ -150,19 +161,19 @@ if __name__ == "__main__":
         '''
         """
         response = model_wrapper(SYSTEM_PROMPT, user_prompt)
-        try:
+        try:  # Validate response
             response = validate_response(response, summary_tokenized)
-        except Exception as e:
+        except Exception as e:  # Handle invalid response - provide a correction prompt
             error = str(e)
             failure_prompt = FAILURE_PROMPT.format(error=error, summary_word_tokenization=summary_tokenized)
             response = model_wrapper(SYSTEM_PROMPT, user_prompt, previous_response=response, correction_prompt=failure_prompt)
-            try:
+            try: # Validate response again
                 response = validate_response(response, summary_tokenized)
-            except Exception as e:
+            except Exception as e:  # Discard response if still invalid
                 json_data = {
                     'success': False
                 }
-            else:
+            else:  # Format valid response
                 json_data = {
                     'success': True,
                     'content': {
@@ -172,7 +183,7 @@ if __name__ == "__main__":
                         'response': response
                     }
                 }
-        else:
+        else: # Format valid response
             json_data = {
                 'success': True,
                 'content': {
@@ -182,8 +193,8 @@ if __name__ == "__main__":
                     'response': response
                 }
             }
-            print(json_data['content']['response']['unfaithful'])
 
+        # Save json data
         json_filepath = os.path.join(parent_path, sample['id'][0] + ".json")
         with open(json_filepath, 'w') as f:
             json.dump(json_data, f, indent=4)
