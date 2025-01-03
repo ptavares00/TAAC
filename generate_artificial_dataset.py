@@ -184,7 +184,7 @@ if __name__ == "__main__":
             }
             print(json_data['content']['response']['unfaithful'])
 
-        json_filepath = os.path.join(parent_path, sample['id'] + ".json")
+        json_filepath = os.path.join(parent_path, sample['id'][0] + ".json")
         with open(json_filepath, 'w') as f:
             json.dump(json_data, f, indent=4)
 
