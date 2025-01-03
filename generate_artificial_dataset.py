@@ -126,7 +126,7 @@ Please ensure you follow the output format exactly as described in the system pr
 
 
 if __name__ == "__main__":
-    model_wrapper = Llama(device="cpu")
+    model_wrapper = Llama(device="cuda")
     xsum = load_xsum()
     parent_path = "~/dataset"
 
