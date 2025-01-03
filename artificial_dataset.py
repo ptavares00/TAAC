@@ -1,5 +1,7 @@
 import json
 import torch
+import os
+import glob
 from torch.utils.data import Dataset
 from transformers import DistilBertTokenizer
 
@@ -11,9 +13,8 @@ from transformers import DistilBertTokenizer
 class ArtificialDataset(Dataset):
     def __init__(self, data_path, tokenizer, max_length=512):
         # Load the data
-        with open(data_path, 'r') as file:
-            data = json.load(file)
-        self.data = data['content']
+        # Use glob to get all .json files in the data_path
+        self.json_files = glob.glob(os.path.join(data_path, "*.json"))
         self.tokenizer = tokenizer
         self.max_length = max_length
 
@@ -21,7 +22,10 @@ class ArtificialDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
-        item = self.data[idx]
+        with open(self.json_files[idx], 'r') as file:
+            json_file = json.load(file)
+        
+        item = json_file['content']
         document = item['document']
         summary = item['summary']
         summary_label = item['response']['unfaithful']
@@ -48,27 +52,20 @@ class ArtificialDataset(Dataset):
             "input_ids": inputs['input_ids'].squeeze(),
             "attention_mask": inputs['attention_mask'].squeeze(),
             'summary_label': torch.tensor(summary_label, dtype=torch.long),
-            "labels": torch.tensor(word_labels, dtype=torch.long)
+            "word_labels": torch.tensor(word_labels, dtype=torch.long)
         }
 
-    def __str__(self):
-        return ''#'\n'.join([str(self[idx]) for idx in range(len(self))])
+    def __len__(self) -> int:
+        """
+        Returns the number of JSON files in the dataset.
+        """
+        return len(self.json_files)
 
 if __name__ == "__main__":
     tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
-    dataset = ArtificialDataset(data_path="unfaithful.json", tokenizer=tokenizer)
-
-    for sample in dataset:
-        print(sample['input_ids'].shape)
-        print(sample['attention_mask'].shape)
-        print(sample['summary_label'].shape)
-        print(sample['labels'].shape)
-
-        print(sample['input_ids'])
-        print(sample['attention_mask'])
-        print(sample['summary_label'])
-        print(sample['labels'])
-        break
-
+    dataset = ArtificialDataset(data_path="/home/paulo-bessa/Downloads", tokenizer=tokenizer)
+    print(len(dataset))
+    print(dataset[0])
+    print(dataset[0]['summary_label'])
 
 
