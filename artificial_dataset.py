@@ -9,14 +9,11 @@ from transformers import DistilBertTokenizerFast
 # THIS TUTORIAL IS VERY USEFUL - https://colab.research.google.com/github/huggingface/notebooks/blob/main/examples/token_classification.ipynb#scrollTo=FiKd-zGz-iXP
 # THE TOKENIZER SHOULD BE THE ONE FROM THE DISTILBERT MODEL
 
-
 class ArtificialDataset(Dataset):
-    def __init__(self, data_path, tokenizer, max_length=512):
+    def __init__(self, data_path):
         # Load the data
         # Use glob to get all .json files in the data_path
         self.json_files = glob.glob(os.path.join(data_path, "*.json"))
-        self.tokenizer = tokenizer
-        self.max_length = max_length
 
     def __len__(self):
         return len(self.data)
@@ -25,47 +22,8 @@ class ArtificialDataset(Dataset):
         with open(self.json_files[idx], 'r') as file:
             json_file = json.load(file)
         
-        item = json_file['content']
-        document = item['document']
-        summary = item['summary']
-        summary_label = item['response']['unfaithful']
-        labels = item['response']['word unfaithful labels']
-        
-        # Tokenize document and summary
-        tokenized_document= self.tokenizer(document, 
-                                max_length=self.max_length,
-                                padding='max_length',
-                                truncation=True,
-                                return_tensors="pt")
-        
-        tokenized_summary = self.tokenizer(summary, 
-                                max_length=self.max_length,
-                                padding='max_length',
-                                truncation=True,
-                                return_tensors="pt")
-       
-        # Prepare labels (0 for faithful, 1 for unfaithful) for each subword in the summary
-        if labels:
-            word_labels = [-100 if word_id is None else int(labels[word_id][1]) for word_id in tokenized_summary.word_ids()]
-        else:
-            word_labels = [0] * len(tokenized_summary['input_ids'])
-        
-        # Ensure labels match tokenized length (pad or truncate if needed)
-        #word_labels = word_labels[:self.max_length]
-        #word_labels += [0] * (self.max_length - len(word_labels))
-        
-        # Ensure summary_label is a single value (for summary-level classification)
-        summary_label = torch.tensor(summary_label, dtype=torch.long)
-
-        # Return the data
-        return {
-            "input_ids": tokenized_document['input_ids'].squeeze(),
-            "attention_mask": tokenized_document['attention_mask'].squeeze(),
-            "summary_input_ids": tokenized_summary['input_ids'].squeeze(),
-            "summary_attention_mask": tokenized_summary['attention_mask'].squeeze(),
-            'summary_label': summary_label,  # Summary-level classification label
-            "word_labels": torch.tensor(word_labels, dtype=torch.long)  # Token-level classification labels
-        }
+        return json_file
+    
 
     def __len__(self) -> int:
         """
@@ -75,10 +33,8 @@ class ArtificialDataset(Dataset):
 
 if __name__ == "__main__":
     tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
-    dataset = ArtificialDataset(data_path="/home/paulo-bessa/Downloads", tokenizer=tokenizer)
-    #print(len(dataset))
-    #print(dataset[0])
-    #print(dataset[0]['summary_label'])
+    dataset = ArtificialDataset(data_path="/home/paulo-bessa/Downloads")
+    #tokenized_dataset=prepare_dataset_for_training(dataset=dataset,tokenizer=tokenizer)
     from IPython import embed; embed()
 
 
