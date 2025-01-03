@@ -9,6 +9,49 @@ from transformers import DistilBertTokenizerFast
 # THIS TUTORIAL IS VERY USEFUL - https://colab.research.google.com/github/huggingface/notebooks/blob/main/examples/token_classification.ipynb#scrollTo=FiKd-zGz-iXP
 # THE TOKENIZER SHOULD BE THE ONE FROM THE DISTILBERT MODEL
 
+# This function will take a JSON file and prepare the data for training
+def prepare_dataset_for_training(json_file):
+    tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
+    document = json_file['content']['document']
+    summary = json_file['content']['summary']
+    summary_label = json_file['content']['response']['unfaithful'] 
+    label = json_file['content']['response']['word unfaithful labels'] 
+    word_labels=[]
+
+    tokenized_documents= tokenizer(document, 
+                            max_length=512,
+                            padding='max_length',
+                            truncation=True,
+                            return_tensors="pt")
+    
+    tokenized_summarys = tokenizer(summary, 
+                            max_length=128,
+                            padding='max_length',
+                            truncation=True,
+                            return_tensors="pt")
+
+    
+    if label:
+        word_labels.append([-100 if word_id is None else int(label[word_id][1]) for word_id in tokenized_summarys.word_ids()])
+    else:
+        word_labels.append([0] * len(tokenized_summarys['input_ids']))
+        
+
+    word_labels = torch.tensor(word_labels, dtype=torch.long) 
+    summary_label = torch.tensor(summary_label, dtype=torch.long)
+
+    # Return the data as lists of tensors
+    encodings = {
+            "document_input_ids": tokenized_documents['input_ids'],#[t['input_ids'] for t in tokenized_documents],
+            "document_attention_mask": tokenized_documents['attention_mask'],#[t['attention_mask'] for t in tokenized_documents],
+            "summary_input_ids": tokenized_summarys['input_ids'],#[t['input_ids'] for t in tokenized_summarys],
+            "summary_attention_mask": tokenized_summarys['attention_mask'],#[t['attention_mask'] for t in tokenized_summarys],
+            'summary_label': summary_label,  # Summary-level classification label
+            "word_labels": word_labels  # Token-level classification labels
+            }
+    return encodings
+
+# This class will be used to load the dataset
 class ArtificialDataset(Dataset):
     def __init__(self, data_path):
         # Load the data
@@ -22,7 +65,7 @@ class ArtificialDataset(Dataset):
         with open(self.json_files[idx], 'r') as file:
             json_file = json.load(file)
         
-        return json_file
+        return prepare_dataset_for_training(json_file)
     
 
     def __len__(self) -> int:
@@ -32,9 +75,7 @@ class ArtificialDataset(Dataset):
         return len(self.json_files)
 
 if __name__ == "__main__":
-    tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
     dataset = ArtificialDataset(data_path="/home/paulo-bessa/Downloads")
-    #tokenized_dataset=prepare_dataset_for_training(dataset=dataset,tokenizer=tokenizer)
     from IPython import embed; embed()
 
 
