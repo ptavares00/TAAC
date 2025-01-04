@@ -1,7 +1,6 @@
 import json
 import torch
-import os
-import glob
+from datasets import Dataset as HFDataset
 from torch.utils.data import Dataset
 from transformers import DistilBertTokenizerFast
 
@@ -9,63 +8,17 @@ from transformers import DistilBertTokenizerFast
 # THIS TUTORIAL IS VERY USEFUL - https://colab.research.google.com/github/huggingface/notebooks/blob/main/examples/token_classification.ipynb#scrollTo=FiKd-zGz-iXP
 # THE TOKENIZER SHOULD BE THE ONE FROM THE DISTILBERT MODEL
 
-# This function will take a JSON file and prepare the data for training
-def prepare_dataset_for_training(json_file):
-    tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
-    document = json_file['content']['document']
-    summary = json_file['content']['summary']
-    summary_label = json_file['content']['response']['unfaithful'] 
-    label = json_file['content']['response']['word unfaithful labels'] 
-    word_labels=[]
 
-    tokenized_documents= tokenizer(document, 
-                            max_length=512,
-                            padding='max_length',
-                            truncation=True,
-                            return_tensors="pt")
-    
-    tokenized_summarys = tokenizer(summary, 
-                            max_length=128,
-                            padding='max_length',
-                            truncation=True,
-                            return_tensors="pt")
-
-    
-    if label:
-        word_labels.append([-100 if word_id is None else int(label[word_id][1]) for word_id in tokenized_summarys.word_ids()])
-    else:
-        word_labels.append([0] * len(tokenized_summarys['input_ids']))
-        
-
-    word_labels = torch.tensor(word_labels, dtype=torch.long) 
-    summary_label = torch.tensor(summary_label, dtype=torch.long)
-
-    # Return the data as lists of tensors
-    encodings = {
-            "document_input_ids": tokenized_documents['input_ids'],#[t['input_ids'] for t in tokenized_documents],
-            "document_attention_mask": tokenized_documents['attention_mask'],#[t['attention_mask'] for t in tokenized_documents],
-            "summary_input_ids": tokenized_summarys['input_ids'],#[t['input_ids'] for t in tokenized_summarys],
-            "summary_attention_mask": tokenized_summarys['attention_mask'],#[t['attention_mask'] for t in tokenized_summarys],
-            'summary_label': summary_label,  # Summary-level classification label
-            "word_labels": word_labels  # Token-level classification labels
-            }
-    return encodings
-
-# This class will be used to load the dataset
 class ArtificialDataset(Dataset):
-    def __init__(self, data_path):
-        # Load the data
-        # Use glob to get all .json files in the data_path
-        self.json_files = glob.glob(os.path.join(data_path, "*.json"))
-
-    def __len__(self):
-        return len(self.data)
+    def __init__(self, data_paths):
+        self.json_files = data_paths
+        self.tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
 
     def __getitem__(self, idx):
         with open(self.json_files[idx], 'r') as file:
             json_file = json.load(file)
         
-        return prepare_dataset_for_training(json_file)
+        return self.prepare_dataset_for_training(json_file)
     
 
     def __len__(self) -> int:
@@ -73,9 +26,82 @@ class ArtificialDataset(Dataset):
         Returns the number of JSON files in the dataset.
         """
         return len(self.json_files)
+    
+    # This function will take a JSON file and prepare the data for training
+    def prepare_dataset_for_training(self,json_file):
+        """
+        Prepares the dataset for training by tokenizing the document and summary.
+        """
+
+        document = json_file['content']['document']
+        summary = json_file['content']['summary']
+        summary_word_tokenization = json_file['content']['summary_word_tokenization']
+        summary_label = json_file['content']['response']['unfaithful'] 
+        label = json_file['content']['response']['word unfaithful labels'] 
+
+        # Tokenize the document and summary
+        tokenized_documents= self.tokenizer(document, summary,
+                                max_length=512,
+                                padding='max_length',
+                                truncation=True,
+                                return_tensors="pt")        
+
+        # Tokenize the summary at the word level 
+        tokenized_summarys = self.tokenizer(summary_word_tokenization, 
+                                max_length=128,
+                                padding='max_length',
+                                truncation=True,
+                                return_tensors="pt",
+                                is_split_into_words=True)
+        
+        #Uncomment the following lines to use the tokenized summary
+        #tokenized_summarys = self.tokenizer(summary, 
+                                    #max_length=128,
+                                    #padding='max_length',
+                                    #truncation=True,
+                                    #return_tensors="pt")
+
+        # Get the word IDs from the tokenized summary
+        # This will be used to create the token-level labels
+        # It garantees that the labels are aligned with the tokenized subwords 
+        word_ids = tokenized_summarys.word_ids()
+
+        if label:
+        # To fix the length of the label were the dataset ignore some tokens like '.'
+            word_id_length=max([w for w in word_ids if w is not None])+1 #number of diferent words in the summary identified by the tokenizer 
+            if  word_id_length > len(label):
+                label += [['.', 'false']] * (word_id_length - len(label))  # Pad with default values
+            elif word_id_length < len(label):
+                label = label[:word_id_length]  # Truncate to match length
+            
+        # Convert the labels to binary values and -100 for the special tokens
+            word_labels=[-100 if word_id is None else int(str(label[word_id][1]).lower() == 'true') for word_id in word_ids]
+        else:
+            word_labels=[0] * len(tokenized_summarys['input_ids'])
+            
+        
+        word_labels = torch.tensor(word_labels, dtype=torch.long)
+        summary_label = torch.tensor(summary_label, dtype=torch.long)
+
+        # Return the data as lists of tensors 
+        # Must be a dictionary with the following keys: input_ids, attention_mask, labels
+        encodings = {
+                "input_ids": tokenized_documents['input_ids'].squeeze(0), # Document and Summary input IDs
+                "attention_mask": tokenized_documents['attention_mask'].squeeze(0), # Document and Summary attention masks
+                "labels": summary_label.squeeze(0) # Summary-level classification label
+
+                # For token-level classification
+                #"labels": word_labels.squeeze(0)  # Token-level classification labels                  
+                }                
+        
+        return encodings
 
 if __name__ == "__main__":
-    dataset = ArtificialDataset(data_path="/home/paulo-bessa/Downloads")
+    import os
+    import glob
+    
+    # Use glob to get all .json files in the data_path
+    data_paths=glob.glob(os.path.join("/home/paulo-bessa/Downloads/faithfulness_dataset_filtered", "*.json"))
+    dataset = ArtificialDataset(data_paths=data_paths[1:2])
+        
     from IPython import embed; embed()
-
-
