@@ -42,7 +42,7 @@ class ArtificialDataset(Dataset):
 
         # Tokenize the document and summary
         tokenized_documents= self.tokenizer(document, summary,
-                                max_length=512,
+                                max_length=512, #maximum allowd by distilbert
                                 padding='max_length',
                                 truncation=True,
                                 return_tensors="pt")        
@@ -55,13 +55,6 @@ class ArtificialDataset(Dataset):
                                 return_tensors="pt",
                                 is_split_into_words=True)
         
-        #Uncomment the following lines to use the tokenized summary
-        #tokenized_summarys = self.tokenizer(summary, 
-                                    #max_length=128,
-                                    #padding='max_length',
-                                    #truncation=True,
-                                    #return_tensors="pt")
-
         # Get the word IDs from the tokenized summary
         # This will be used to create the token-level labels
         # It garantees that the labels are aligned with the tokenized subwords 
@@ -84,25 +77,12 @@ class ArtificialDataset(Dataset):
         word_labels = torch.tensor(word_labels, dtype=torch.long)
         summary_label = torch.tensor(summary_label, dtype=torch.long)
 
-        input_ids = tokenized_documents['input_ids']
-        padding_length = input_ids.shape[1] - word_labels.shape[0]
-
-        # If the padding length is positive, pad the labels; otherwise, truncate the word_labels
-        if padding_length > 0:
-            padded_labels = F.pad(word_labels, (0, padding_length), value=-100)
-        elif padding_length < 0:
-            padded_labels = word_labels[:input_ids.shape[1]]  # Truncate if the labels are too long
-        else:
-            padded_labels = word_labels  # No padding needed if the lengths are already equal
-
         # Return the data as lists of tensors 
         # Must be a dictionary with the following keys: input_ids, attention_mask, labels
         encodings = {
                 "input_ids": tokenized_documents['input_ids'].squeeze(0), # Document and Summary input IDs
                 "attention_mask": tokenized_documents['attention_mask'].squeeze(0), # Document and Summary attention masks
                 "labels": summary_label.squeeze(0), # Summary-level classification label
-
-                # For token-level classification
                 "word_labels": word_labels.squeeze(0)  # Token-level classification labels                  
                 }                
         
@@ -113,9 +93,9 @@ if __name__ == "__main__":
     import glob
     
     # Use glob to get all .json files in the data_path
-    #data_paths=glob.glob(os.path.join("/home/paulo-bessa/Downloads/faithfulness_dataset_filtered", "*.json"))
-    #data_paths=glob.glob(os.path.join("c:/Users/nunom/Downloads/faithfulness_dataset_filtered", "*.json"))
-    data_paths=glob.glob(os.path.join("c:/Users/nunom/Downloads/testing", "*.json"))
-    dataset = ArtificialDataset(data_paths=data_paths[1:2])
+    data_paths=glob.glob(os.path.join("/home/paulo-bessa/Downloads/faithfulness_dataset_filtered", "*.json"))
+    dataset = ArtificialDataset(data_paths=data_paths)
         
     from IPython import embed; embed()
+
+    
