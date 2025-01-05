@@ -72,11 +72,11 @@ class ArtificialDataset(Dataset):
         # Return the data as lists of tensors 
         # Must be a dictionary with the following keys: input_ids, attention_mask, labels
         encodings = {
-                "input_ids": tokenized_documents['input_ids'].squeeze(0), # Document and Summary input IDs
-                "attention_mask": tokenized_documents['attention_mask'].squeeze(0), # Document and Summary attention masks
-                "labels": summary_label.squeeze(0), # Summary-level classification label
-                "word_labels": word_labels.squeeze(0)  # Token-level classification labels                  
-                }                
+            "input_ids": tokenized_documents['input_ids'].squeeze(0),  # Document and Summary input IDs
+            "attention_mask": tokenized_documents['attention_mask'].squeeze(0),  # Document and Summary attention masks
+            "labels": summary_label.squeeze(0).unsqueeze(-1),  # Summary-level classification label
+            "word_labels": word_labels.squeeze(0).unsqueeze(-1)  # Token-level classification labels
+        }
         
         return encodings
 

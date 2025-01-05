@@ -3,3 +3,4 @@ torch
 huggingface_hub
 transformers
 nltk
+scikit-learn
