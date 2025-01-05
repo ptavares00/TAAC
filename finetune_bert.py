@@ -36,6 +36,7 @@ def split_data(dataset_paths=DIRECTORY, train_size=0.8, val_size=0.1):
 # Step 3: Custom training loop
 def train_model(model, train_loader, val_loader, optimizer, criterion, device, num_epochs=3):
     model.to(device)
+    current_loss_value = 10000
 
     for epoch in range(num_epochs):
         model.train()
@@ -74,10 +75,13 @@ def train_model(model, train_loader, val_loader, optimizer, criterion, device, n
         print(f"Epoch {epoch + 1}/{num_epochs}, Loss: {total_loss/batch_counter:.4f}")
 
         # Validate the model
-        validate_model(model, val_loader, device)
+        results = validate_model(model, val_loader, device)
 
         # Save the model
-        torch.save(model.state_dict(), f"model_epoch_{epoch + 1}.pt")
+        if results['loss'] < current_loss_value:
+            print(f"Saving model with loss: {results['loss']}")
+            current_loss_value = results['loss']
+            torch.save(model.state_dict(), f"model.pt")
 
 
 def validate_model(model, val_loader, device):
@@ -87,6 +91,7 @@ def validate_model(model, val_loader, device):
     all_word_preds = []
     all_word_labels = []
     all_word_masks = []
+    loss = 0
 
     with torch.no_grad():
         for batch in val_loader:
@@ -97,6 +102,14 @@ def validate_model(model, val_loader, device):
 
             # Forward pass
             summary_logits, word_logits = model(input_ids, attention_mask)
+
+            # Compute losses
+            summary_loss = criterion(summary_logits, summary_labels.float())
+            token_loss = criterion(word_logits, word_labels.float())
+            mask = word_labels != -100
+            nr_valid_tokens = mask.sum(axis=1)
+            token_loss = (token_loss*mask).sum(axis=1) / nr_valid_tokens  # average loss per valid token
+            loss += (summary_loss + token_loss).sum().item()
 
             # Summary-level predictions
             summary_preds = (torch.sigmoid(summary_logits) > 0.5).float()
@@ -135,6 +148,7 @@ def validate_model(model, val_loader, device):
         "word_precision": word_precision,
         "word_recall": word_recall,
         "word_f1": word_f1,
+        "loss": loss / len(val_loader)
     }
 
 
@@ -177,17 +191,23 @@ if __name__ == "__main__":
     val_dataset = ArtificialDataset(val_files)
     test_dataset = ArtificialDataset(test_files)
 
-    train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=16)
-    test_loader = DataLoader(test_dataset, batch_size=16)
+    train_loader = DataLoader(train_dataset, batch_size=96, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=96)
+    test_loader = DataLoader(test_dataset, batch_size=96)
 
     model = CustomBERT()
+
+    # Freeze DistilBERT layers
+    for param in model.distilbert.parameters():
+        param.requires_grad = False
+    model.train()
+
     optimizer = torch.optim.AdamW(model.parameters(), lr=2e-5)
     criterion = torch.nn.BCEWithLogitsLoss(reduction='none')  # Binary Cross-Entropy Loss
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    train_model(model, train_loader, val_loader, optimizer, criterion, device)
+    train_model(model, train_loader, val_loader, optimizer, criterion, device, num_epochs=50)
 
     show_example_predictions(model, test_loader, device, example_index=0)
 
