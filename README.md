@@ -7,7 +7,7 @@ The project can be splitted into two different subprojects:
 - xsum.py - Loads the Xsum Dataset, the base dataset for creating an artificial one.
 - generate_artifical_dataset.py - Generates an artificial dataset using Xsum and Llama for summary faithfulness.
 
-The dataset generated as the following structure:
+The dataset generated has the following structure:
 - document: original document in XSum
 - summary: original summary in XSum
 - summary_word_tokenization: tokenized summary wil nltk
