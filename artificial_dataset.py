@@ -61,19 +61,11 @@ class ArtificialDataset(Dataset):
         word_ids = tokenized_summarys.word_ids()
 
         if label:
-        # To fix the length of the label were the dataset ignore some tokens like '.'
-            word_id_length=max([w for w in word_ids if w is not None])+1 #number of diferent words in the summary identified by the tokenizer 
-            if  word_id_length > len(label):
-                label += [['.', 'false']] * (word_id_length - len(label))  # Pad with default values
-            elif word_id_length < len(label):
-                label = label[:word_id_length]  # Truncate to match length
-            
         # Convert the labels to binary values and -100 for the special tokens
             word_labels=[-100 if word_id is None else int(str(label[word_id][1]).lower() == 'true') for word_id in word_ids]
         else:
-            word_labels=[0] * len(tokenized_summarys['input_ids'])
+            word_labels=[0] * 128 ## padding with zeros if no labels are available
             
-        
         word_labels = torch.tensor(word_labels, dtype=torch.long)
         summary_label = torch.tensor(summary_label, dtype=torch.long)
 
@@ -93,9 +85,9 @@ if __name__ == "__main__":
     import glob
     
     # Use glob to get all .json files in the data_path
-    data_paths=glob.glob(os.path.join("/home/paulo-bessa/Downloads/faithfulness_dataset_filtered", "*.json"))
+    data_paths=glob.glob(os.path.join("/home/paulo-bessa/Downloads/dataset_max_token_size_512", "*.json"))
     dataset = ArtificialDataset(data_paths=data_paths)
-        
+ 
     from IPython import embed; embed()
 
     

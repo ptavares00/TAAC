@@ -9,7 +9,7 @@ from bert import CustomBERT
 from artificial_dataset import ArtificialDataset
 
 # Step 1: Define paths for the JSON files
-DIRECTORY = 'c:/Users/nunom/Downloads/testing'
+DIRECTORY = '/home/paulo-bessa/Downloads/dataset_max_token_size_512'
 
 # Step 2: Split the dataset into train, validation, and test datasets
 def split_data(dataset_paths=DIRECTORY, train_size=0.8, val_size=0.1):
@@ -51,10 +51,13 @@ def train_model(model, train_loader, val_loader, optimizer, criterion, device, n
 
             # Compute losses
             summary_loss = criterion(summary_logits, summary_labels)
-            token_loss = (
-                criterion(word_logits.view(-1, 2), word_labels.view(-1))
-                if word_labels.numel() > 0 else 0
-            )
+            token_loss = criterion(word_logits, word_labels)
+
+            # Calculate token-level loss per sequence ignoring -100 tokens
+            mask=word_labels!=-100
+            nr_valid_tokens=mask.sum(axis=1)
+            token_loss=(token_loss*mask).sum(axis=1)/nr_valid_tokens #average loss per valid token
+            
             loss = summary_loss + token_loss
 
             loss.backward()
@@ -175,10 +178,11 @@ if __name__ == "__main__":
     train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=16)
     test_loader = DataLoader(test_dataset, batch_size=16)
+    #from IPython import embed; embed()
 
     model = CustomBERT()
     optimizer = torch.optim.AdamW(model.parameters(), lr=2e-5)
-    criterion = torch.nn.CrossEntropyLoss(ignore_index=-100)  # Handle padding tokens
+    criterion = torch.nn.BCEWithLogitsLoss()  #Binary Cross-Entropy Loss
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
